@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Music Review Hub</title>
+  <style>
+    body { font-family: Arial; margin: 30px; }
+    h1 { color: #222; text-align: center; }
+    section { margin-bottom: 40px; }
+    img { border-radius: 8px; margin-top: 5px; }
+    #reviews div {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin-bottom: 10px;
+      background-color: #f9f9f9;
+      border-radius: 6px;
+    }
+    form { border-top: 2px solid #ccc; padding-top: 20px; }
+    input, textarea, select { margin-bottom: 10px; width: 250px; }
+  </style>
+</head>
+<body>
+  <h1>Music Review System</h1>
+
+  <!-- 1️⃣ VIEWER SECTION -->
+  <section id="viewer">
+    <h2>Browse Artist Reviews</h2>
+    <label>Choose an Artist:</label>
+    <select id="artistViewerDropdown"></select>
+    <button id="viewBtn">View Reviews</button>
+    <div id="artistInfo"></div>
+    <div id="reviews"></div>
+  </section>
+
+  <!-- 2️⃣ FORM SECTION -->
+  <section id="formSection">
+    <h2>Submit Your Own Review</h2>
+    <form id="reviewForm">
+      <label>Choose Artist:</label>
+      <select id="artistFormDropdown" name="artist_id" required></select><br>
+
+      <label>Album Title:</label><input name="album_title" required><br>
+      <label>Track Title:</label><input name="track_title" required><br>
+      <label>Track Length:</label><input name="track_length"><br>
+      <label>Track Artwork Path:</label><input name="track_artwork" placeholder="images/pyramids.jpg"><br>
+      <label>Reviewer Name:</label><input name="reviewer_name" required><br>
+      <label>Review Title:</label><input name="review_title" required><br>
+      <label>Review Description:</label><textarea name="review_description"></textarea><br>
+      <label>Star Rating (1–5):</label><input type="number" name="star_rating" min="1" max="5"><br><br>
+      <button type="submit">Submit Review</button>
+    </form>
+  </section>
+
+  <script>
+    // Load artists into both dropdowns
+    async function loadArtists() {
+      const res = await fetch("/artists");
+      const artists = await res.json();
+      const viewerDropdown = document.getElementById("artistViewerDropdown");
+      const formDropdown = document.getElementById("artistFormDropdown");
+
+      const options = artists.map(a =>
+        `<option value="${a.artist_id}">${a.artist_name}</option>`
+      ).join("");
+
+      viewerDropdown.innerHTML = options;
+      formDropdown.innerHTML = options;
+    }
+
+    // Load reviews for chosen artist
+    async function loadReviews(artistId) {
+      const res = await fetch(`/reviews/${artistId}`);
+      const reviews = await res.json();
+      const artistDiv = document.getElementById("artistInfo");
+      const reviewDiv = document.getElementById("reviews");
+
+      if (reviews.length === 0) {
+        artistDiv.innerHTML = "<p>No reviews yet for this artist.</p>";
+        reviewDiv.innerHTML = "";
+        return;
+      }
+
+      const artist = reviews[0];
+      artistDiv.innerHTML = `
+        <h3>${artist.artist_name}</h3>
+        <img src="${artist.artist_picture}" width="200"><br><br>
+      `;
+
+      reviewDiv.innerHTML = reviews.map(r => `
+        <div>
+          <h4>${r.review_title}</h4>
+          <p>${r.review_description}</p>
+          <p>⭐ ${r.star_rating} stars</p>
+          <p><b>Reviewer:</b> ${r.reviewer_name}</p>
+          <p><b>Album:</b> ${r.album_title}</p>
+          <p><b>Track:</b> ${r.track_title} (${r.track_length})</p>
+          <img src="${r.track_artwork}" width="150">
+        </div>
+      `).join("");
+    }
+
+    // When "View Reviews" button clicked
+    document.getElementById("viewBtn").addEventListener("click", () => {
+      const artistId = document.getElementById("artistViewerDropdown").value;
+      loadReviews(artistId);
+    });
+
+    // When review form is submitted
+    document.getElementById("reviewForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const data = Object.fromEntries(formData.entries());
+
+      const res = await fetch("/addreview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+
+      const result = await res.json();
+      if (result.success) {
+        alert("✅ Review added!");
+        loadReviews(result.artistId); // jump to that artist’s reviews after adding
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    });
+
+    loadArtists();
+  </script>
+</body>
+</html>
