@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Login | Music Review Hub</title>
+  <style>
+    body { font-family: Arial; text-align: center; margin-top: 80px; }
+    input { margin: 8px; padding: 8px; width: 200px; }
+  </style>
+</head>
+<body>
+  <h1>Login to Music Review Hub</h1>
+  <form id="loginForm">
+    <input id="username" placeholder="Username" required><br>
+    <input id="password" type="password" placeholder="Password" required><br>
+    <button type="submit">Login</button>
+  </form>
+  <p>Don’t have an account? <a href="/signup.html">Create one</a></p>
+
+  <script>
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const username = document.getElementById("username").value;
+      const password = document.getElementById("password").value;
+
+      const res = await fetch("/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+      });
+
+      const result = await res.json();
+      if (result.success) {
+        alert("✅ Logged in successfully!");
+        window.location.href = "/musicreviews.html";
+      } else {
+        alert(result.message);
+      }
+    });
+  </script>
+</body>
+</html>

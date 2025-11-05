@@ -3,25 +3,49 @@
 <head>
   <title>Music Review Hub</title>
   <style>
-    body { font-family: Arial; margin: 30px; }
+    body { font-family: Arial, sans-serif; margin: 30px; background-color: #f5f5f5; }
     h1 { color: #222; text-align: center; }
-    section { margin-bottom: 40px; }
+    header {
+      display: flex; justify-content: space-between; align-items: center;
+      background-color: #222; color: white; padding: 10px 20px; border-radius: 6px;
+    }
+    header h2 { margin: 0; font-size: 20px; }
+    #logoutBtn {
+      background-color: #ff5555; color: white; border: none; border-radius: 4px;
+      padding: 8px 14px; cursor: pointer; font-weight: bold;
+    }
+    #logoutBtn:hover { background-color: #e33; }
+
+    section { background: white; padding: 20px; border-radius: 6px; margin-bottom: 40px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
     img { border-radius: 8px; margin-top: 5px; }
     #reviews div {
       border: 1px solid #ccc;
       padding: 10px;
       margin-bottom: 10px;
-      background-color: #f9f9f9;
+      background-color: #fafafa;
       border-radius: 6px;
     }
-    form { border-top: 2px solid #ccc; padding-top: 20px; }
-    input, textarea, select { margin-bottom: 10px; width: 250px; }
+    input, textarea, select {
+      margin-bottom: 10px; width: 250px; padding: 6px; border: 1px solid #ccc; border-radius: 4px;
+    }
+    form { padding-top: 10px; }
+    button {
+      padding: 8px 12px; border: none; border-radius: 4px; background-color: #0078d4; color: white; cursor: pointer;
+    }
+    button:hover { background-color: #005fa3; }
+    #formNotice { font-style: italic; color: gray; }
   </style>
 </head>
 <body>
-  <h1>Music Review System</h1>
+  <header>
+    <h2>🎵 Music Review Hub</h2>
+    <div id="userBar">
+      <span id="welcomeMsg"></span>
+      <button id="logoutBtn" style="display:none;">Logout</button>
+    </div>
+  </header>
 
-  <!-- 1️⃣ VIEWER SECTION -->
+  <!-- VIEWER SECTION -->
   <section id="viewer">
     <h2>Browse Artist Reviews</h2>
     <label>Choose an Artist:</label>
@@ -31,10 +55,11 @@
     <div id="reviews"></div>
   </section>
 
-  <!-- 2️⃣ FORM SECTION -->
+  <!-- REVIEW FORM SECTION -->
   <section id="formSection">
     <h2>Submit Your Own Review</h2>
-    <form id="reviewForm">
+    <p id="formNotice"><i>Please log in to add a review. <a href="/login.html">Login here</a></i></p>
+    <form id="reviewForm" style="display:none;">
       <label>Choose Artist:</label>
       <select id="artistFormDropdown" name="artist_id" required></select><br>
 
@@ -42,7 +67,7 @@
       <label>Track Title:</label><input name="track_title" required><br>
       <label>Track Length:</label><input name="track_length"><br>
       <label>Track Artwork Path:</label><input name="track_artwork" placeholder="images/pyramids.jpg"><br>
-      <label>Reviewer Name:</label><input name="reviewer_name" required><br>
+      <label>Reviewer Name:</label><input name="reviewer_name" id="reviewerName" required readonly><br>
       <label>Review Title:</label><input name="review_title" required><br>
       <label>Review Description:</label><textarea name="review_description"></textarea><br>
       <label>Star Rating (1–5):</label><input type="number" name="star_rating" min="1" max="5"><br><br>
@@ -51,7 +76,28 @@
   </section>
 
   <script>
-    // Load artists into both dropdowns
+    let loggedInUser = null;
+
+    // Check login session automatically
+    async function checkLoginStatus() {
+      const res = await fetch("/session");
+      const data = await res.json();
+      if (data.loggedIn) {
+        loggedInUser = data.username;
+        document.getElementById("welcomeMsg").textContent = `Welcome, ${loggedInUser}!`;
+        document.getElementById("logoutBtn").style.display = "inline";
+        document.getElementById("reviewForm").style.display = "block";
+        document.getElementById("formNotice").style.display = "none";
+        document.getElementById("reviewerName").value = loggedInUser;
+      } else {
+        document.getElementById("welcomeMsg").textContent = "";
+        document.getElementById("logoutBtn").style.display = "none";
+        document.getElementById("reviewForm").style.display = "none";
+        document.getElementById("formNotice").style.display = "block";
+      }
+    }
+
+    // Load all artists
     async function loadArtists() {
       const res = await fetch("/artists");
       const artists = await res.json();
@@ -66,7 +112,7 @@
       formDropdown.innerHTML = options;
     }
 
-    // Load reviews for chosen artist
+    // Load reviews for selected artist
     async function loadReviews(artistId) {
       const res = await fetch(`/reviews/${artistId}`);
       const reviews = await res.json();
@@ -93,18 +139,40 @@
           <p><b>Reviewer:</b> ${r.reviewer_name}</p>
           <p><b>Album:</b> ${r.album_title}</p>
           <p><b>Track:</b> ${r.track_title} (${r.track_length})</p>
-          <img src="${r.track_artwork}" width="150">
+          <img src="${r.track_artwork}" width="150"><br>
+          ${
+            loggedInUser === r.reviewer_name
+              ? `<button onclick="deleteReview(${r.review_id})">🗑️ Delete</button>`
+              : ""
+          }
         </div>
       `).join("");
     }
 
-    // When "View Reviews" button clicked
+    // Delete review (only if user owns it)
+    async function deleteReview(id) {
+      const res = await fetch("/deletereview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ review_id: id })
+      });
+      const result = await res.json();
+      if (result.success) {
+        alert("Review deleted.");
+        const artistId = document.getElementById("artistViewerDropdown").value;
+        loadReviews(artistId);
+      } else {
+        alert(result.message);
+      }
+    }
+
+    // View button handler
     document.getElementById("viewBtn").addEventListener("click", () => {
       const artistId = document.getElementById("artistViewerDropdown").value;
       loadReviews(artistId);
     });
 
-    // When review form is submitted
+    // Submit review
     document.getElementById("reviewForm").addEventListener("submit", async e => {
       e.preventDefault();
       const formData = new FormData(e.target);
@@ -119,11 +187,23 @@
       const result = await res.json();
       if (result.success) {
         alert("✅ Review added!");
-        loadReviews(result.artistId); // jump to that artist’s reviews after adding
+        loadReviews(result.artistId);
         window.scrollTo({ top: 0, behavior: "smooth" });
+      } else {
+        alert(result.message || "Error adding review.");
       }
     });
 
+    // Logout
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+      await fetch("/logout");
+      loggedInUser = null;
+      checkLoginStatus();
+      alert("Logged out.");
+    });
+
+    // Initialize page
+    checkLoginStatus();
     loadArtists();
   </script>
 </body>
